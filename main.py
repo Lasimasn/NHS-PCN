@@ -127,19 +127,20 @@ with st.form("entry_form",clear_on_submit=True):
         st.success("Appointment request received")
         #code to save to sqllite
         addData(Name,Disease,Email,answer)
+        send_mail(answer,Email)
         #code to convert df to csv
-        df_new = pd.DataFrame({'Why are you here': [Disease],
-                             'Which part of your body is affected?': [Sym1],
-                               'Email': [Email],
-                               'Department': [answer],
-
-                               })
-        df=pd.DataFrame()
-        df=pd.concat([df,df_new],ignore_index=True)
+        # df_new = pd.DataFrame({'Why are you here': [Disease],
+        #                      'Which part of your body is affected?': [Sym1],
+        #                        'Email': [Email],
+        #                        'Department': [answer],
+        #
+        #                        })
+        # df=pd.DataFrame()
+        # df=pd.concat([df,df_new],ignore_index=True)
         #st.dataframe(st.session_state.df)
         #results=pd.DataFrame(answer,columns=['Ans'])
         #st.dataframe(results)
-st.download_button(label="Download",data=df.to_csv(),mime='text/csv')
+#st.download_button(label="Download",data=df.to_csv(),mime='text/csv')
 
         #
 
