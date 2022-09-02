@@ -17,7 +17,7 @@ import tensorflow as tf
 from tensorflow import keras
 import sqlite3
 import pandas as pd
-#nltk.download('stopwords')
+nltk.download('stopwords')
 conn=sqlite3.connect('data.db',check_same_thread=False,timeout=15)
 curr=conn.cursor()
 #op_df=table[int()].df
