@@ -81,7 +81,7 @@ def send_mail(answer,email):
     server.ehlo()
     server.ehlo()
 
-    server.login('lasima.sn@gmail.com', 'exmjxsznufjsxdtd')
+    server.login('lasima.sn@gmail.com', '')
 
     subject = "Appointment booked!"
     body = "Your appointment has been booked with {dept} department at {time} ".format(dept=ans, time='2pm')
