@@ -7,7 +7,8 @@ import streamlit as st
 import pickle
 import sklearn
 import re
-from transformers import BertTokenizer
+import transformers
+from transformers import BertTokenizer, TFBertMainLayer
 import time
 import smtplib
 import re
@@ -19,7 +20,7 @@ from tensorflow import keras
 #nltk.download('stopwords')
 
 #model=pickle.load(open('Picklelr.pkl','rb'))
-model = tensorflow.keras.models.load_model("Bert_for_nhs.h5", custom_objects={'TFBertMainLayer': TFAutoModel})
+model = tensorflow.keras.models.load_model("Bert_nhs_sheet4.h5", custom_objects={'CustomMetric':transformers.TFBertMainLayer})
 
 # from tensorflow.keras.utils import CustomObjectScope
 #
@@ -33,11 +34,11 @@ st.title("Primary Care Network")
 st.write("""
          Book an appointment
          """)
-def analyse(Disease, Sym1, Sym2, Sym3, Sym4, Sym5, Sym6, Sym7, Sym8):
+def analyse(Disease, Sym1, Sym2, Sym3,  Sym5, Sym6, Sym7):
     REPLACE_BY_SPACE_RE = re.compile('[/(){}\[\]\|@,;]')
     BAD_SYMBOLS_RE = re.compile('[^5-9a-z #+_]')
     STOPWORDS = set(stopwords.words('english'))
-    symp = [Disease, Sym1, Sym2, Sym3, Sym4, Sym5, Sym6, Sym7, Sym8]
+    symp = [Disease, Sym1, Sym2, Sym3,  Sym5, Sym6, Sym7]
     dis = ''
     dis = (' '.join(str(x) for x in symp))
     text = dis.lower()  # lowercase text
@@ -75,41 +76,86 @@ def send_mail(answer,email):
         email,
         msg
     )
-
-
-with st.form("entry_form",clear_on_submit=False):
-    #Disease,Sym1=st.columns(9)
-    Disease= st.selectbox("Why are you here", ("Wrist , hand or finger pain","neck or back pain","pain in the leg","Head ache"))
-    Sym1=st.text_input("Which part of your body is your concern associated with?")#, ("Wrist , hand or finger","neck or back","foot or ankle or leg","Head"))
-    Sym2=st.selectbox("How long have you had your current symptoms?", ("less than 24 hrs","longer than 24 hrs","long term or intermittent"))
-    Sym3=st.selectbox("Have you tried any of these medications?", ("Paracetamol","Aspirin or any other medication","Any cream or gel","Not tried"))
-    #Sym4=st.selectbox("Have you been diagnosed with any long term medical problems?", ("Yes","Migrane or cluster or sinus headache","None"))
-    Sym5=st.selectbox("Do you have any of the below symptoms?", ("No","Redness or Swelling or loss of sensation or painful lump","Change of shape or loss of movement"))
-    Sym6=st.selectbox("Do you feel any of these difficulties accompanied with the pain?", ("No","fever lasting more than 5 days","Excessive sleepiness or change in concious level","Lack of energy","Jaw pain","Worsening headache"))
-    Sym7=st.selectbox("Are you able to perform regular activities?", ("Can do regular activities","Unable to move affected area"))
-    #Sym8=st.selectbox("Do you have any of these symptoms?",("None","Squint or eyes affected","Dizzy or associated with ataxia or unsteadiness","intense pain in bluish discolouration","persistent vomiting","stress","anxiety or depression"))
-    Comment=st.text_area("Is there anything you want to tell us.",placeholder="Is there anything you want to tell us.")
-
-    Email = st.text_area("Enter your email address",placeholder="Email address")
-    "---"
-
-
-    submitted=st.form_submit_button("Submit")
-    if submitted:
-        answer=analyse(Disease, Sym1, Sym2, Sym3, Sym4, Sym5, Sym6, Sym7, Sym8)
-        dept=prediction(answer)
-        st.write("You are being referred to {dept}. Click below to confirm your appointment.".format(dept=dept))
-
-        confirmbtn=st.form_submit_button("Confirm")
-        #send_mail(answer,email=Email)
-        if confirmbtn:
-            send_mail(answer)
-#
-def prediction(input):
-    probs=model.predict(test)
+def final_output(input):
+    probs=model.predict(input)
     labels=['pharmacy', 'physio' ,'gp', 'podiatry','mental health','social councelling']
-    return label[np.argmax(prob[0])]
+    return labels[np.argmax(probs[0])]
 
+# with st.form("entry_form",clear_on_submit=False):
+Name = st.text_input("Full Name")
+page_names= ["Book a GP appointment or get health advice", "Refill Prescription", "Get help with Mental Health"]
+Disease = st.selectbox("Why are you here", page_names)
+print(Disease)
+if (Disease == "Get help with Mental Health"):
+
+    # Sym1=st.selectbox("Which part of your body is your concern associated with?", ("Wrist , hand or finger","neck or back","foot or ankle or leg","Head"))
+    Sym2 = st.selectbox("How long have you had your current condition?",
+                        ("less than 24 hrs", "longer than 24 hrs", "long term or intermittent"))
+    Sym3 = st.selectbox("Have you tried any of these medications?",
+                        ("Paracetamol", "Aspirin or any other medication", "Any cream or gel", "Not tried"))
+    Sym5 = st.multiselect("Do you have any of the below symptoms?", (
+        "No", "Little to no interest in doing activities", "Excessive sleepiness",
+        "change in concious level",
+        "Lack of energy",))
+    Sym6 = st.selectbox("Do you feel any of these difficulties accompanied with the pain?", (
+        "No", "Little to no interest in doing activities", "Excessive sleepiness",
+        "change in concious level",
+        "Lack of energy",
+        "Anxiety in social situations", "Worsening headache"))
+    Sym7 = st.selectbox("Is this stopping you from perform regular activities?",
+                        ("Can do regular activities", "Unable to do regular activities"))
+
+elif (Disease == "Book a GP appointment or get health advice"):
+
+    # Sym1=st.selectbox("Which part of your body is your concern associated with?", ("Wrist , hand or finger","neck or back","foot or ankle or leg","Head"))
+    Sym2 = st.selectbox("How long have you had your current symptoms?",
+                        ("less than 24 hrs", "longer than 24 hrs", "long term or intermittent"))
+    Sym3 = st.selectbox("Have you tried any of these medications?",
+                        ("Paracetamol", "Aspirin or any other medication", "Any cream or gel", "Not tried"))
+    # Sym4=st.selectbox("Have you been diagnosed with any long term medical problems?", ("Yes","Migrane or cluster or sinus headache","None"))
+    Sym5 = st.selectbox("Do you have any of the below symptoms?", (
+        "No", "Redness or Swelling", "loss of sensation", "painful lump", "Change of shape ", " loss of movement"))
+    Sym6 = st.selectbox("Do you feel any of these difficulties accompanied with the pain?", (
+        "No", "fever lasting more than 5 days", "Excessive sleepiness or change in concious level",
+        "Lack of energy",
+        "Jaw pain", "Worsening headache"))
+    Sym7 = st.selectbox("Are you able to perform regular activities?",
+                        ("Can do regular activities", "Unable to move affected area"))
+else:
+
+    Sym2 = st.selectbox("Funny how How long have you had your current symptoms?",
+                        ("less than 24 hrs", "longer than 24 hrs", "long term or intermittent"))
+    Sym3 = st.selectbox("Have you tried any of these medications?",
+                        ("Paracetamol", "Aspirin or any other medication", "Any cream or gel", "Not tried"))
+    # Sym4=st.selectbox("Have you been diagnosed with any long term medical problems?", ("Yes","Migrane or cluster or sinus headache","None"))
+    Sym5 = st.selectbox("Do you have any of the below symptoms?", (
+        "No", "Redness or Swelling", "loss of sensation", "painful lump", "Change of shape ", " loss of movement"))
+    Sym6 = st.selectbox("Do you feel any of these difficulties accompanied with the pain?", (
+        "No", "fever lasting more than 5 days", "Excessive sleepiness or change in concious level",
+        "Lack of energy",
+        "Jaw pain", "Worsening headache"))
+    Sym7 = st.selectbox("Are you able to perform regular activities?",
+                        ("Can do regular activities", "Unable to move affected area"))
+    # Sym8=st.selectbox("Do you have any of these symptoms?",("None","Squint or eyes affected","Dizzy or associated with ataxia or unsteadiness","intense pain in bluish discolouration","persistent vomiting","stress","anxiety or depression"))
+print(Sym5)
+Comment = st.text_input("Is there anything you want to tell us.",
+                    placeholder="Is there anything you want to tell us.")
+Email = st.text_input("Enter your email address", placeholder="Email address")
+"---"
+sumbitted=st.button("Submit")
+if sumbitted:
+    answer=analyse(Disease,Sym1,Sym2,Sym3,Sym5,Sym6,Sym7)
+    dept=final_output(answer)
+    st.write("You are being referred to {dept}. Click below to confirm your appointment.".format(dept=dept))
+    # submitted=st.form_submit_button("Submit")
+    # if submitted:
+    #     answer=analyse(Disease, Sym1, Sym2, Sym3,  Sym5, Sym6, Sym7)
+    #     dept=final_output(answer)
+    #     st.write("You are being referred to {dept}. Click below to confirm your appointment.".format(dept=dept))
+
+#
+# def get_conig(self):
+#     return {'units':self.units}
 
 
 

@@ -1,5 +1,9 @@
 #http://localhost:8501
-
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+import pickle
+import google_auth_oauthlib
+from datetime import datetime, timedelta
 import numpy as np
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.preprocessing.text import Tokenizer
@@ -17,12 +21,15 @@ import tensorflow as tf
 from tensorflow import keras
 import sqlite3
 import pandas as pd
-nltk.download('stopwords')
+import calndar as cal
+import forMail as mailer
+#nltk.download('stopwords')
 conn=sqlite3.connect('data.db',check_same_thread=False,timeout=15)
 curr=conn.cursor()
 #op_df=table[int()].df
 #st.dataframe(op_df)
 
+#code to load and initialize models
 model=pickle.load(open('teletubby.pkl','rb'))
 #model = tf.keras.models.load_model("lstm_dataset.h5") #,custom_objects={'KerasLayer':hub.KerasLayer})
 #tokenizer = Tokenizer(num_words=100)# filters='!"#$%&()*+,-./:;<=>?@[\]^_`{|}~', lower=True)
@@ -33,13 +40,13 @@ st.write("""
          Book an appointment
          """)
 
+#code for adding to database
 def addData(a,b,c,d):
     curr.execute("""CREATE TABLE IF NOT EXISTS nhs_form(NAME TEXT(50),DISEASE TEXT(50), EMAIL TEXT(50),DEPT TEXT(50));""")
     curr.execute("INSERT INTO nhs_form VALUES (?,?,?,?)",(a,b,c,d))
     conn.commit()
     conn.close()
     st.success("Successfully saved")
-
 
 
 def analyse(Disease, Sym1, Sym2, Sym3, Sym5, Sym6, Sym7):
@@ -70,73 +77,116 @@ def analyse(Disease, Sym1, Sym2, Sym3, Sym5, Sym6, Sym7):
     # return labels[np.argmax(pred)]
     #result=int(np.argmax(pred))
     return model.predict([text])[0]
-
-
-
-def send_mail(answer,email):
-    ans = answer
+def send_mail(email):
     server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
     server.ehlo()
     server.ehlo()
+    server.login('nhs.fortest@gmail.com', 'xjnafdjmegkhjwyz')
+    subject = "Request received!"
+    body = "Your appointment request has been received. We will contact you with details shortly.\nIn case of emergency call 999."
+    msg = f"Subject: {subject}\n\n{body}"
+    server.sendmail(
+        'nhs.fortest@gmail.com',email,msg
+    )
 
-    server.login('lasima.sn@gmail.com', '')
-
+def send_appointment_confirmation(answer,email,appt_time,app_end):
+    server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+    server.ehlo()
+    server.ehlo()
+    server.login('nhs.fortest@gmail.com', 'xjnafdjmegkhjwyz')
     subject = "Appointment booked!"
-    body = "Your appointment has been booked with {dept} department at {time} ".format(dept=ans, time='2pm')
+    body = "Your appointment has been booked with {dept} department from {st_time} to {en_time}. \nIn case you are not able to attend, please let us know. ".format(dept=answer, st_time=appt_time,en_time=app_end)
     msg = f"Subject: {subject}\n\n{body}"
 
     server.sendmail(
-        'lasima.sn@gmail.com',
-        email,
-        msg
+        'nhs.fortest@gmail.com', email, msg
     )
 
+Name = st.text_input("Full Name")
+page_names= ["Book a GP appointment or get health advice", "Refill Prescription", "Get help with Mental Health"]
+Disease = st.selectbox("Why are you here", page_names)
+print(Disease)
+if (Disease == "Get help with Mental Health"):
 
-with st.form("entry_form",clear_on_submit=True):
-    #Disease,Sym1=st.columns(9)
-    Name=st.text_input("Full Name")
-    Disease= st.selectbox("Why are you here", ("Book a GP appointment or get health advice","Refill Prescription","Get help with MH"))
-    Sym1=st.text_area("Which part of your body is affected? Explain in a few words")
-    #Sym1=st.selectbox("Which part of your body is your concern associated with?", ("Wrist , hand or finger","neck or back","foot or ankle or leg","Head"))
-    Sym2=st.selectbox("How long have you had your current symptoms?", ("less than 24 hrs","longer than 24 hrs","long term or intermittent"))
-    Sym3=st.selectbox("Have you tried any of these medications?", ("Paracetamol","Aspirin or any other medication","Any cream or gel","Not tried"))
-    #Sym4=st.selectbox("Have you been diagnosed with any long term medical problems?", ("Yes","Migrane or cluster or sinus headache","None"))
-    Sym5=st.selectbox("Do you have any of the below symptoms?", ("No","Redness or Swelling or loss of sensation or painful lump","Change of shape or loss of movement"))
-    Sym6=st.selectbox("Do you feel any of these difficulties accompanied with the pain?", ("No","fever lasting more than 5 days","Excessive sleepiness or change in concious level","Lack of energy","Jaw pain","Worsening headache"))
-    Sym7=st.selectbox("Are you able to perform regular activities?", ("Can do regular activities","Unable to move affected area"))
-    #Sym8=st.selectbox("Do you have any of these symptoms?",("None","Squint or eyes affected","Dizzy or associated with ataxia or unsteadiness","intense pain in bluish discolouration","persistent vomiting","stress","anxiety or depression"))
-    Comment=st.text_area("Is there anything you want to tell us.",placeholder="Is there anything you want to tell us.")
+    Sym1=st.text_area("What brings you here? Explain in a few words")
+    Sym2 = st.selectbox("How long have you had your current condition?",
+                        ("less than 24 hrs", "longer than 24 hrs", "long term or intermittent"))
+    Sym3 = st.selectbox("Are you on any of these medications?",
+                        ("Anti-depressants", "any other mood stabilizers", "Benzodiazepines", "No"))
+    Sym5 = st.multiselect("Do you have any of the below symptoms?", (
+        "No", "Anxiety", "Stress","Feeling low or depressed"))
+    Sym6 = st.selectbox("Select whatever applies to you", (
+        "No","Excessive sleepiness","Lack of energy","Avoiding social situations", "Worsening headache"))
+    Sym7 = st.selectbox("Is this stopping you from perform regular activities?",
+                        ("Doing regular activities as usual", "Little to no interest in doing activities"))
 
-    Email = st.text_input("Enter your email address",placeholder="Email address")
-    "---"
+elif (Disease == "Book a GP appointment or get health advice"):
 
+    Sym1=st.text_area("What brings you here? Explain in a few words")
+    Sym2 = st.selectbox("How long have you had your current symptoms?",
+                        ("less than 24 hrs", "longer than 24 hrs", "long term or intermittent"))
+    Sym3 = st.selectbox("Have you tried any of these medications?",
+                        ("Paracetamol", "Aspirin or any other medication", "Any cream or gel", "Not tried"))
+    # Sym4=st.selectbox("Have you been diagnosed with any long term medical problems?", ("Yes","Migrane or cluster or sinus headache","None"))
+    Sym5 = st.selectbox("Do you have any of the below symptoms?", (
+        "No", "Redness or Swelling", "loss of sensation", "painful lump", "Change of shape ", " loss of movement"))
+    Sym6 = st.selectbox("Do you feel any of these difficulties accompanied with the pain?", (
+        "No", "fever lasting more than 5 days", "Excessive sleepiness or change in concious level",
+        "Lack of energy",
+        "Jaw pain", "Worsening headache"))
+    Sym7 = st.selectbox("Are you able to perform regular activities?",
+                        ("Can do regular activities", "Unable to move affected area"))
+else:
+    Sym1 = st.text_area("What brings you here? Explain in a few words")
+    Sym2 = st.selectbox("Funny how How long have you had your current symptoms?",
+                        ("less than 24 hrs", "longer than 24 hrs", "long term or intermittent"))
+    Sym3 = st.selectbox("Have you tried any of these medications?",
+                        ("Paracetamol", "Aspirin or any other medication", "Any cream or gel", "Not tried"))
+    # Sym4=st.selectbox("Have you been diagnosed with any long term medical problems?", ("Yes","Migrane or cluster or sinus headache","None"))
+    Sym5 = st.selectbox("Do you have any of the below symptoms?", (
+        "No", "Redness or Swelling", "loss of sensation", "painful lump", "Change of shape ", " loss of movement"))
+    Sym6 = st.selectbox("Do you feel any of these difficulties accompanied with the pain?", (
+        "No", "fever lasting more than 5 days", "Excessive sleepiness or change in concious level",
+        "Lack of energy","Jaw pain", "Worsening headache"))
+    Sym7 = st.selectbox("Are you able to perform regular activities?",
+                        ("Can do regular activities", "Unable to move affected area"))
+    # Sym8=st.selectbox("Do you have any of these symptoms?",("None","Squint or eyes affected","Dizzy or associated with ataxia or unsteadiness","intense pain in bluish discolouration","persistent vomiting","stress","anxiety or depression"))
+print(Sym5)
+#Comment = st.text_input("Is there anything you want to tell us.",
+#                    placeholder="Is there anything you want to tell us.")
+Email = st.text_input("Enter your email address", placeholder="Email address")
+"---"
 
-    submitted=st.form_submit_button("Submit")
-    #Save to df
-    # df=pd.DataFrame(columns=['Why are you here',
-    #                            'Which part of your body is affected?',
-    #                            'Email',
-    #                            'Department'])
+submitted=st.button("Submit")
+if submitted:
+    send_mail(Email)
+    answer=analyse(Disease, Sym1, Sym2, Sym3, Sym5, Sym6, Sym7)
+    st.write("You are being referred to {dept}. We will get back to you shortly with your appointmnet details.".format(dept=answer))
+    st.success("Appointment request received")
 
-    # st.download_button("Export CSV",
-    #                    op_df.to_csv(),
-    #                    mime='text/csv')
-    if submitted:
-        answer=analyse(Disease, Sym1, Sym2, Sym3, Sym5, Sym6, Sym7)
-        st.write("You are being referred to {dept}. We will get back to you shortly with your appointmnet details.".format(dept=answer))
-        st.success("Appointment request received")
-        #code to save to sqllite
-        addData(Name,Disease,Email,answer)
-        send_mail(answer,Email)
+    #code to save to sqllite
+    addData(Name,Disease,Email,answer)
+
+    #code to get calendar events
+    service,events,start,end,duration = cal.get_calendar_events()
+    appt_time,app_end=cal.insert_new_calendar_event(service,Name, Sym1,Email,events, start, end, duration)
+    send_appointment_confirmation(answer,Email,appt_time,app_end)
         #code to convert df to csv
-        # df_new = pd.DataFrame({'Why are you here': [Disease],
-        #                      'Which part of your body is affected?': [Sym1],
-        #                        'Email': [Email],
-        #                        'Department': [answer],
-        #
-        #                        })
-        # df=pd.DataFrame()
-        # df=pd.concat([df,df_new],ignore_index=True)
+        #df_new = pd.DataFrame({'Why are you here': [Disease],
+                          #   'Which part of your body is affected?': [Sym1],
+                        #   'Department': [answer],
+
+
+
+
+
+
+
+
+
+#                               })
+        #df=pd.DataFrame()
+        #df=pd.concat([df,df_new],ignore_index=True)
         #st.dataframe(st.session_state.df)
         #results=pd.DataFrame(answer,columns=['Ans'])
         #st.dataframe(results)
